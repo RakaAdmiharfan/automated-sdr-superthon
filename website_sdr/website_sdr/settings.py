@@ -55,7 +55,7 @@ ROOT_URLCONF = 'website_sdr.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -122,3 +122,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Set your OpenAI API key
+OPENAI_API_KEY = 'sk-proj-OuCYkL2zjWdC8XqV8izjT3BlbkFJ5BJsW5V5w6XR4w1KvYeY'
+

@@ -5,9 +5,10 @@ import PyPDF2
 import pytesseract
 from pdf2image import convert_from_path
 import openai
+from django.conf import settings
 
 # Set your OpenAI API key
-openai.api_key = 'your-openai-api-key'
+openai.api_key = settings.OPENAI_API_KEY
 
 def read_pdf(file_path):
     with open(file_path, "rb") as file:
@@ -107,7 +108,7 @@ def upload_view(request):
             # Generate summary of the standard PDF
             summary = ask_gpt_summary(standard_text)
 
-            return render(request, 'results.html', {
+            return render(request, 'polls/result.html', {
                 'standard_pdf_url': standard_pdf_url,
                 'target_pdf_url': target_pdf_url,
                 'standard_text': standard_text,
@@ -118,8 +119,8 @@ def upload_view(request):
             })
     else:
         form = UploadFileForm()
-    return render(request, 'upload.html', {'form': form})
+    return render(request, 'polls/upload.html', {'form': form})
 
 def results_view(request):
     # Placeholder view for results
-    return render(request, 'results.html')
+    return render(request, 'polls/result.html')

@@ -19,5 +19,5 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-     path('', include('polls.urls')),  # This makes 'polls' the default app
+    path('', include('polls.urls')),  # This makes 'polls' the default app
 ]
