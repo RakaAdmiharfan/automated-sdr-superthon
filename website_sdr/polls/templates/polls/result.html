@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Processing Results</title>
+    <meta name="csrf-token" content="{{ csrf_token }}"> 
+    <title>Interactive Chatbot with PDF.js</title>
     <link
       href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
       rel="stylesheet"
     />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <style>
       body {
         background-color: #f5f5f5;
@@ -15,68 +17,219 @@
       .container-fluid {
         margin-top: 20px;
       }
-      .pdf-viewer {
+      .pdf-container {
         height: 90vh;
         border: 1px solid #ddd;
         background-color: white;
         padding: 10px;
-        overflow-y: scroll;
+        overflow-y: auto;
+      }
+      .pdf-page {
+        width: 100%;
+        margin-bottom: 10px;
+        border: 1px solid #ddd;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
       }
       .interaction-section {
         height: 90vh;
         border: 1px solid #ddd;
         background-color: white;
         padding: 10px;
+        display: flex;
+        flex-direction: column;
       }
-      iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
+      .chat-window {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+      }
+      .chat-message {
+        margin-bottom: 15px;
+      }
+      .chat-message.user .message-content {
+        background-color: #007bff;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 15px;
+        text-align: right;
+        margin-left: auto;
+        max-width: 80%;
+      }
+      .chat-message.gpt .message-content {
+        background-color: #f1f1f1;
+        padding: 8px 12px;
+        border-radius: 15px;
+        max-width: 80%;
+      }
+      .input-group {
+        margin-top: 10px;
       }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container-fluid">
-      <div class="row">
-        <div class="col-md-8 pdf-viewer">
-          <h4>Standard PDF:</h4>
-          {% if standard_pdf_url %}
-          <iframe
-            src="{{ standard_pdf_url }}"
-            title="Standard PDF Viewer"
-          ></iframe>
-          {% else %}
-          <p>No standard PDF uploaded yet. Please upload a file.</p>
-          {% endif %}
+        <div class="row">
+            <!-- PDF Viewer Section -->
+            <div class="col-md-8">
+                <div class="pdf-container" id="standard-pdf-container">
+                    <h4>Standard PDF:</h4>
+                    {% if standard_pdf_url %}
+                    <!-- PDF.js will render pages here -->
+                    {% else %}
+                    <p>No standard PDF uploaded yet. Please upload a file.</p>
+                    {% endif %}
+                </div>
+                
+                <div class="pdf-container mt-4" id="target-pdf-container">
+                    <h4>Target PDF:</h4>
+                    {% if target_pdf_url %}
+                    <!-- PDF.js will render pages here -->
+                    {% else %}
+                    <p>No target PDF uploaded yet. Please upload a file.</p>
+                    {% endif %}
+                </div>
+            </div>
 
-          <h4 class="mt-4">Target PDF:</h4>
-          {% if target_pdf_url %}
-          <iframe src="{{ target_pdf_url }}" title="Target PDF Viewer"></iframe>
-          {% else %}
-          <p>No target PDF uploaded yet. Please upload a file.</p>
-          {% endif %}
+            <!-- Interactive Chat Section -->
+            <div class="col-md-4 interaction-section">
+                <h4>Chat with the AI Assistant</h4>
+                <div class="chat-window" id="chat-window">
+                    <!-- Initial GPT and user conversation will be shown here -->
+                    
+                    {% for message in conversation_history %}
+                        <div class="chat-message {{ message.role }}">
+                            <div class="message-content">{{ message.content }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- User input area -->
+                <div class="input-group">
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="userInput"
+                      placeholder="Type your question..."
+                      aria-label="User input"
+                      aria-describedby="sendButton"
+                    />
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" type="button" id="sendButton">Send</button>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div class="col-md-4 interaction-section">
-          <h4>Extracted Text from Standard PDF:</h4>
-          <pre>{{ standard_text }}</pre>
-
-          <h4 class="mt-4">Extracted Text from Target PDF:</h4>
-          <pre>{{ target_text }}</pre>
-
-          <h4 class="mt-4">Extracted Keywords from Standard PDF:</h4>
-          <pre>{{ standard_keywords }}</pre>
-
-          <h4 class="mt-4">Keyword Check Results:</h4>
-          <pre>{{ results }}</pre>
-
-          <h4 class="mt-4">Summary of Standard PDF:</h4>
-          <pre>{{ summary }}</pre>
-        </div>
-      </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        $.ajaxSetup({
+          headers: {
+            'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')
+          }
+        });
+
+        // Function to send the message
+        function sendMessage() {
+            const userInput = $('#userInput').val();
+            if (userInput.trim() !== '') {
+                const chatWindow = $('#chat-window');
+                const userMessage = `<div class="chat-message user"><div class="message-content">${userInput}</div></div>`;
+                chatWindow.append(userMessage);
+
+                chatWindow.scrollTop(chatWindow[0].scrollHeight);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '{% url "upload" %}',  // Ensure this URL is correct
+                    data: {
+                        conversation_history: JSON.stringify($('#chat-window').find('.chat-message').map(function() {
+                            return {
+                                role: $(this).hasClass('user') ? 'user' : 'system',
+                                content: $(this).find('.message-content').text()
+                            };
+                        }).get()),
+                        csrfmiddlewaretoken: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function (response) {
+                        console.log(response);
+                        if (response.conversation_history && response.conversation_history.length > 0) {
+                            const lastMessage = response.conversation_history[response.conversation_history.length - 1];
+                            const gptResponse = `<div class="chat-message gpt"><div class="message-content">${lastMessage.content || "No content"}</div></div>`;
+                            chatWindow.append(gptResponse);
+                        } else {
+                            const gptResponse = `<div class="chat-message gpt"><div class="message-content">No response received.</div></div>`;
+                            chatWindow.append(gptResponse);
+                        }
+
+                        chatWindow.scrollTop(chatWindow[0].scrollHeight);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("AJAX request failed:", xhr.responseText, status, error);
+                        chatWindow.append('<div class="chat-message gpt"><div class="message-content">An error occurred while processing your request.</div></div>');
+                    }
+                });
+
+                $('#userInput').val('');
+            }
+        }
+
+        // Bind send button click
+        $('#sendButton').click(function () {
+            sendMessage();
+        });
+
+        // Bind "Enter" key to send message
+        $('#userInput').on('keypress', function(e) {
+            if (e.which === 13) {  // Enter key pressed
+                sendMessage();
+                e.preventDefault();  // Prevent form submission
+            }
+        });
+
+        // PDF.js multi-page rendering
+        var urlStandardPDF = "{{ standard_pdf_url }}";
+        var urlTargetPDF = "{{ target_pdf_url }}";
+
+        function renderPDF(url, containerId) {
+          if (!url) return; // Do nothing if the URL is not provided
+
+          var loadingTask = pdfjsLib.getDocument(url);
+          loadingTask.promise.then(function(pdf) {
+            var container = document.getElementById(containerId);
+            for (var pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              (function(pageNum) {
+                pdf.getPage(pageNum).then(function(page) {
+                  var viewport = page.getViewport({ scale: 1.5 });
+
+                  // Create a new canvas for each page
+                  var canvas = document.createElement('canvas');
+                  canvas.className = 'pdf-page';
+                  canvas.height = viewport.height;
+                  canvas.width = viewport.width;
+
+                  var context = canvas.getContext('2d');
+                  var renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                  };
+
+                  container.appendChild(canvas);
+                  page.render(renderContext);
+                });
+              })(pageNum);
+            }
+          }, function(reason) {
+            console.error("Error rendering PDF:", reason);
+          });
+        }
+
+        // Render the PDFs into their respective containers
+        renderPDF(urlStandardPDF, 'standard-pdf-container');
+        renderPDF(urlTargetPDF, 'target-pdf-container');
+      });
+    </script>
+</body>
 </html>

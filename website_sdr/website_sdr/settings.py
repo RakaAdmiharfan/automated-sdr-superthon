@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -126,3 +127,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Set your OpenAI API key
 OPENAI_API_KEY = 'sk-proj-OuCYkL2zjWdC8XqV8izjT3BlbkFJ5BJsW5V5w6XR4w1KvYeY'
 
+
+# Directory where uploaded files will be stored
+MEDIA_ROOT = os.path.join(BASE_DIR, 'polls/media')
+
+# URL that serves the media files
+MEDIA_URL = '/media/'
